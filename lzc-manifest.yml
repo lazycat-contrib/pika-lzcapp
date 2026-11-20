@@ -6,10 +6,9 @@ application:
       # 修复 WebSocket 升级头（探针通过 /ws/agent 连接，网页实时数据也走 WebSocket）
       fix_websocket_header: true
       backend: http://pika:8080/
-
 services:
   pika:
-    # upstream: dushixiang/pika:0.2.8
+    # upstream: docker.io/dushixiang/pika:0.2.8
     # 镜像地址由 GitHub Action 按上游最新版本改写（镜像模式）
     image: docker.1ms.run/dushixiang/pika:0.2.8
     # 上游镜像默认 root 运行，数据目录由平台建好归属一致，直接可写
@@ -41,15 +40,12 @@ services:
       - /lzcapp/var/data:/app/data
     tmpfs:
       - /tmp
-
   victoriametrics:
     # upstream: victoriametrics/victoria-metrics:v1.131.0
     # 固定在打包时确认过的版本：VictoriaMetrics 升级由打包仓库统一跟进，不随镜像选择开放
     image: docker.1ms.run/victoriametrics/victoria-metrics:v1.131.0
     command: >-
-      -retentionPeriod=7d
-      -storageDataPath=/victoria-metrics-data
-      -httpListenAddr=:8428
+      -retentionPeriod=7d -storageDataPath=/victoria-metrics-data -httpListenAddr=:8428
     healthcheck:
       # victoria-metrics 镜像基于 alpine，带 wget
       test:
@@ -62,7 +58,6 @@ services:
     binds:
       # 时序指标数据（默认保留 7 天）
       - /lzcapp/var/vmdata:/victoria-metrics-data
-
 usage: |
   Pika 是一个轻量级的探针监控系统：在被监控的机器上装一个探针（agent），
   所有服务器的 CPU、内存、磁盘、网络、GPU、温度等指标实时汇总到本应用；
