@@ -1,0 +1,99 @@
+application:
+  subdomain: pika
+  multi_instance: false
+  upstreams:
+    - location: /
+      # 修复 WebSocket 升级头（探针通过 /ws/agent 连接，网页实时数据也走 WebSocket）
+      fix_websocket_header: true
+      backend: http://pika:8080/
+
+services:
+  pika:
+    # upstream: dushixiang/pika:0.2.8
+    # 镜像地址由 GitHub Action 按上游最新版本改写（镜像模式）
+    image: docker.1ms.run/dushixiang/pika:0.2.8
+    # 上游镜像默认 root 运行，数据目录由平台建好归属一致，直接可写
+    # 首次启动把打包内置的默认配置种到持久数据目录（生成随机 JWT 密钥），
+    # 之后每次启动都从持久副本刷新 /app/config.yaml（用户改配置后重启即生效）
+    setup_script: |
+      if [ ! -f /lzcapp/var/data/config.yaml ]; then
+        mkdir -p /lzcapp/var/data
+        cp /lzcapp/pkg/content/pika/config.yaml /lzcapp/var/data/config.yaml
+        S=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+        sed -i "s/Secret: \"\"/Secret: \"$S\"/" /lzcapp/var/data/config.yaml
+      fi
+      cp -f /lzcapp/var/data/config.yaml /app/config.yaml
+    environment:
+      - TZ=Asia/Shanghai
+    healthcheck:
+      # 镜像里有 shell（alpine），用 wget 探测首页
+      test:
+        - CMD-SHELL
+        - "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - victoriametrics
+    binds:
+      # SQLite 数据库、日志、主题、持久化的 config.yaml
+      - /lzcapp/var/data:/app/data
+    tmpfs:
+      - /tmp
+
+  victoriametrics:
+    # upstream: victoriametrics/victoria-metrics:v1.131.0
+    # 固定在打包时确认过的版本：VictoriaMetrics 升级由打包仓库统一跟进，不随镜像选择开放
+    image: docker.1ms.run/victoriametrics/victoria-metrics:v1.131.0
+    command: >-
+      -retentionPeriod=7d
+      -storageDataPath=/victoria-metrics-data
+      -httpListenAddr=:8428
+    healthcheck:
+      # victoria-metrics 镜像基于 alpine，带 wget
+      test:
+        - CMD-SHELL
+        - "wget -q -O /dev/null http://127.0.0.1:8428/health || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    binds:
+      # 时序指标数据（默认保留 7 天）
+      - /lzcapp/var/vmdata:/victoria-metrics-data
+
+usage: |
+  Pika 是一个轻量级的探针监控系统：在被监控的机器上装一个探针（agent），
+  所有服务器的 CPU、内存、磁盘、网络、GPU、温度等指标实时汇总到本应用；
+  同时支持网站 / 端口拨测（HTTP、TCP、Ping、证书到期）、文件防篡改保护与
+  Linux 安全审计。时序指标存 VictoriaMetrics、业务数据存 SQLite，
+  全部数据保存在微服本地，不上传到任何第三方。
+
+  【第一次使用】
+  1. 打开应用，使用默认管理员账号登录：admin，初始密码见打包仓库说明
+     （登录后请立即在配置文件中修改）。
+  2. 配置文件在应用数据目录的 config.yaml：管理员密码（bcrypt 哈希）、
+     JWT 密钥、VictoriaMetrics 地址都在里面，改完重启应用生效。
+
+  【接入被监控的机器】
+  1. 在 Pika 网页「API 密钥」里创建一个密钥（探针注册时使用）。
+  2. 在每台要监控的机器上运行探针（网页「部署指南」有完整安装命令）：
+       ./pika-agent register -e https://<本应用域名> -t <API密钥> -n <名字>
+  3. 探针通过 WebSocket 长连接推数据，微服这边无需开任何入站端口，
+     被监控机器只要能访问本应用域名即可。
+
+  【拨测 / 服务监控】
+  在「服务监控」里添加 HTTP / TCP / Ping 检查项，可以监控任意网站的
+  状态码、响应时间、内容关键词与 HTTPS 证书到期时间。
+
+  【数据】
+  - 业务数据（SQLite、日志、主题、config.yaml）：/lzcapp/var/data
+  - 时序指标（VictoriaMetrics，默认保留 7 天）：/lzcapp/var/vmdata
+  备份时把上面两个目录整目录拷走即可。
+
+  【说明】
+  - 采用上游官方镜像（dushixiang/pika + victoriametrics/victoria-metrics），
+    版本升级由打包仓库的 GitHub Action 定期检查并自动发布。
+  - 应用自带账号体系（Basic Auth，bcrypt），未接入懒猫免密登录。
+  - 上游项目：https://github.com/pika-monitor/pika

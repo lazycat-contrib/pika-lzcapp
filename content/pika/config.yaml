@@ -1,0 +1,39 @@
+database:
+  enabled: true
+  type: sqlite
+  sqlite:
+    path: "./data/pika.db"
+  show_sql: false
+  pool:
+    max_open_conns: 1 # SQLite 建议 1
+    max_idle_conns: 1
+    conn_max_lifetime_seconds: 3600
+    conn_max_idle_time_seconds: 300
+log:
+  level: info
+  filename: ./logs/pika.log
+server:
+  addr: "0.0.0.0:8080"
+  ip_extractor: "x-forwarded-for"
+  ip_trust_list:
+    - "0.0.0.0/0"
+App:
+  Theme:
+    Dir: "./data/themes"
+  JWT:
+    # 首次启动由安装脚本生成随机密钥并写入数据目录的 config.yaml；
+    # 这里留空仅作兜底（留空时每次重启都会重新生成，登录状态不保留）
+    Secret: ""
+    ExpiresHours: 168 # 7 天
+  # Basic Auth 用户（bcrypt）。生成密码: htpasswd -nBC 12 '' | tr -d ':\n'
+  # 默认账号 admin，初始密码见应用说明；首次登录后请在配置文件中修改
+  Users:
+    admin: "$2y$12$7DXcOiX1D59xNTIn5riUKusAPLP88LxxoczWmUT83MBj5EFznbp8a" # 初始密码: admin123
+  GeoIP:
+    Enabled: false
+  VictoriaMetrics:
+    Enabled: true
+    URL: "http://victoriametrics:8428"
+    RetentionDays: 7
+    WriteTimeout: 60
+    QueryTimeout: 60

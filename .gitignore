@@ -1,0 +1,4 @@
+dist/
+build/
+*.lpk
+.DS_Store

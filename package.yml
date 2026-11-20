@@ -1,0 +1,21 @@
+package: community.lazycat.app.pika
+version: 0.2.8
+name: Pika 探针监控
+description: "轻量级探针监控系统：多台服务器实时性能指标（CPU/内存/磁盘/网络/GPU/温度）、服务拨测（HTTP/TCP/Ping/证书到期）、防篡改保护与安全审计，Go + VictoriaMetrics + SQLite。"
+min_os_version: "1.5.0"
+homepage: https://github.com/pika-monitor/pika
+author: pika-monitor
+license: Apache-2.0
+permissions:
+  required:
+    - net.internet
+locales:
+  zh:
+    name: "Pika 探针监控"
+    description: "轻量级探针监控系统：多台服务器实时性能指标、服务拨测、防篡改保护与安全审计，数据全部留在微服本地。"
+  zh_CN:
+    name: "Pika 探针监控"
+    description: "轻量级探针监控系统：多台服务器实时性能指标、服务拨测、防篡改保护与安全审计，数据全部留在微服本地。"
+  en:
+    name: "Pika"
+    description: "Lightweight probe monitoring: real-time server metrics, service checks, tamper protection and security audit, all data stays on your box."
